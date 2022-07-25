@@ -6,6 +6,7 @@ import pdb
 import pickle
 import re
 from random import randrange
+from shutil import which
 
 import cv2
 import h5py
@@ -136,7 +137,9 @@ class Whole_Slide_Bag_FP(Dataset):
 class Dataset_All_Bags(Dataset):
 
 	def __init__(self, csv_path):
-		self.df = pd.read_csv(csv_path)
+		all_df = pd.read_csv(csv_path)
+		processed_df = all_df.loc[all_df['status']=='processed']
+		self.df = processed_df.reset_index(drop=True)
 	
 	def __len__(self):
 		return len(self.df)
