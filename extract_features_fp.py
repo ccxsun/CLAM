@@ -1,3 +1,4 @@
+from statistics import mode
 import torch
 import torch.nn as nn
 from math import floor
@@ -15,11 +16,11 @@ from utils.file_utils import save_hdf5
 from PIL import Image
 import h5py
 import openslide
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 
 def compute_w_loader(file_path, output_path, wsi, model,
  	batch_size = 8, verbose = 0, print_every=20, pretrained=True, 
-	custom_downsample=1, target_patch_size=-1):
+	custom_downsample=1, target_patch_size=-1, norm=False, target_norm_path = None):
 	"""
 	args:
 		file_path: directory of bag (.h5 file)
@@ -30,9 +31,11 @@ def compute_w_loader(file_path, output_path, wsi, model,
 		pretrained: use weights pretrained on imagenet
 		custom_downsample: custom defined downscale factor of image patches
 		target_patch_size: custom defined, rescaled image size before embedding
+		norm: enable color normalizaion
+		target_norm_path: path of target patch for color normalization
 	"""
 	dataset = Whole_Slide_Bag_FP(file_path=file_path, wsi=wsi, pretrained=pretrained, 
-		custom_downsample=custom_downsample, target_patch_size=target_patch_size)
+		custom_downsample=custom_downsample, target_patch_size=target_patch_size, norm=norm, target_norm_path=target_norm_path)
 	x, y = dataset[0]
 	kwargs = {'num_workers': 4, 'pin_memory': True} if device.type == "cuda" else {}
 	loader = DataLoader(dataset=dataset, batch_size=batch_size, **kwargs, collate_fn=collate_features)
@@ -58,15 +61,18 @@ def compute_w_loader(file_path, output_path, wsi, model,
 
 
 parser = argparse.ArgumentParser(description='Feature Extraction')
-parser.add_argument('--data_h5_dir', type=str, default=None)
-parser.add_argument('--data_slide_dir', type=str, default=None)
+parser.add_argument('--data_h5_dir', type=str, default='/data/one/suncaixia/dataset/CLAM_RCC/')
+parser.add_argument('--data_slide_dir', type=str, default='/data/one/suncaixia/dataset/TCGA-RCC/')
 parser.add_argument('--slide_ext', type=str, default= '.svs')
-parser.add_argument('--csv_path', type=str, default=None)
-parser.add_argument('--feat_dir', type=str, default=None)
+parser.add_argument('--csv_path', type=str, default='/data/one/suncaixia/dataset/CLAM_RCC/process_list_autogen.csv')
+parser.add_argument('--feat_dir', type=str, default='/data/one/suncaixia/dataset/CLAM_RCC/features/')
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--no_auto_skip', default=False, action='store_true')
 parser.add_argument('--custom_downsample', type=int, default=1)
 parser.add_argument('--target_patch_size', type=int, default=-1)
+parser.add_argument('--normal',default=True, action='store_true')
+parser.add_argument('--target_norm_path',type=str, default='/data/one/suncaixia/dataset/CLAM_RCC/target.jpg')
+
 args = parser.parse_args()
 
 
@@ -91,6 +97,8 @@ if __name__ == '__main__':
 	# print_network(model)
 	if torch.cuda.device_count() > 1:
 		model = nn.DataParallel(model)
+	else:
+		model = model.to(device)
 		
 	model.eval()
 	total = len(bags_dataset)
@@ -110,9 +118,12 @@ if __name__ == '__main__':
 		output_path = os.path.join(args.feat_dir, 'h5_files', bag_name)
 		time_start = time.time()
 		wsi = openslide.open_slide(slide_file_path)
-		output_file_path = compute_w_loader(h5_file_path, output_path, wsi, 
-		model = model, batch_size = args.batch_size, verbose = 1, print_every = 20, 
-		custom_downsample=args.custom_downsample, target_patch_size=args.target_patch_size)
+		output_file_path = compute_w_loader(
+			h5_file_path, output_path, wsi, 
+			model = model, batch_size = args.batch_size, verbose = 1, print_every = 20, 
+			custom_downsample=args.custom_downsample, target_patch_size=args.target_patch_size,
+			norm=args.normal, target_norm_path=args.target_norm_path)
+
 		time_elapsed = time.time() - time_start
 		print('\ncomputing features for {} took {} s'.format(output_file_path, time_elapsed))
 		file = h5py.File(output_file_path, "r")

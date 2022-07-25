@@ -224,19 +224,19 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 	return seg_times, patch_times
 
 parser = argparse.ArgumentParser(description='seg and patch')
-parser.add_argument('--source', type = str,
+parser.add_argument('--source', type = str, default='/data/one/suncaixia/dataset/test_rcc',
 					help='path to folder containing raw wsi image files')
 parser.add_argument('--step_size', type = int, default=256,
 					help='step_size')
 parser.add_argument('--patch_size', type = int, default=256,
 					help='patch_size')
-parser.add_argument('--patch', default=False, action='store_true')
-parser.add_argument('--seg', default=False, action='store_true')
-parser.add_argument('--stitch', default=False, action='store_true')
+parser.add_argument('--patch', default=True, action='store_true')
+parser.add_argument('--seg', default=True, action='store_true')
+parser.add_argument('--stitch', default=True, action='store_true')
 parser.add_argument('--no_auto_skip', default=True, action='store_false')
-parser.add_argument('--save_dir', type = str,
+parser.add_argument('--save_dir', type = str, default='/data/one/suncaixia/dataset/test_clam',
 					help='directory to save processed data')
-parser.add_argument('--preset', default=None, type=str,
+parser.add_argument('--preset', default='tcga.csv', type=str,
 					help='predefined profile of default segmentation and filter parameters (.csv)')
 parser.add_argument('--patch_level', type=int, default=0, 
 					help='downsample level at which to patch')
